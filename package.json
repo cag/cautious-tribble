@@ -24,5 +24,8 @@
   "bugs": {
     "url": "https://github.com/cag/cautious-tribble/issues"
   },
-  "homepage": "https://github.com/cag/cautious-tribble#readme"
+  "homepage": "https://github.com/cag/cautious-tribble#readme",
+  "dependencies": {
+    "collections": "^3.0.0"
+  }
 }
