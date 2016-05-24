@@ -21,6 +21,64 @@ function clampCoordinates(entity) {
     entity.y = Math.min(Math.max(entity.y, -1), 10);
 }
 
+class Bullet {
+    constructor(obj) {
+        Object.assign(this, {
+            x: 0,
+            y: 0,
+            speed: .002,
+            dirx: 1,
+            diry: 0,
+        });
+        Object.assign(this, obj);
+    }
+
+    draw() {
+        ctx.save();
+        ctx.transform(
+            this.dirx,
+            this.diry,
+            -this.diry,
+            this.dirx,
+            this.x, this.y);
+        ctx.fillStyle = '#00f';
+        ctx.beginPath();
+        ctx.fillRect(-.07, -.07, .07, .07);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
+
+    update(dt) {
+        let bds = this.speed * dt;
+        this.x += this.dirx * bds;
+        this.y += this.diry * bds;
+    }
+}
+
+class PlayerBullet extends Bullet {
+    constructor(obj) {
+        super(obj);
+        player.bullets.add(this);
+    }
+
+    update(dt) {
+        super.update(dt);
+
+        if(this.x < -1 || this.x > 17 || this.y < -1 || this.y > 10) {
+            player.bullets.delete(this);
+        } else {
+            for(let enemy of enemies) {
+                if(enemy.containsPoint(this.x, this.y)) {
+                    enemy.takeDamage();
+                    player.bullets.delete(this);
+                    break;
+                }
+            }
+        }
+    }
+}
+
 let player = {
     x: 8,
     y: 4.5,
@@ -49,19 +107,7 @@ let player = {
         ctx.restore();
 
         for(let bullet of player.bullets) {
-            ctx.save();
-            ctx.transform(
-                bullet.dirx,
-                bullet.diry,
-                -bullet.diry,
-                bullet.dirx,
-                bullet.x, bullet.y);
-            ctx.fillStyle = '#00f';
-            ctx.beginPath();
-            ctx.fillRect(-.07, -.07, .07, .07);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
+            bullet.draw();
         };
     },
     update: function(dt) {
@@ -72,29 +118,18 @@ let player = {
         player.bullet_timer += dt;
         while(player.bullet_timer > 0) {
             let bds = player.bullet_speed * player.bullet_timer;
-            player.bullets.add({
-                x: player.x + player.dirx*0.25 + bds * player.dirx,
-                y: player.y + player.diry*0.25 + bds * player.diry,
-                dirx: player.dirx,
-                diry: player.diry
-            });
+            new PlayerBullet({
+                            x: player.x + player.dirx*0.25 + bds * player.dirx,
+                            y: player.y + player.diry*0.25 + bds * player.diry,
+                            dirx: player.dirx,
+                            diry: player.diry,
+                            speed: player.bullet_speed
+                        });
             player.bullet_timer -= player.bullet_interval;
         }
 
         for(let bullet of player.bullets) {
-            let bds = player.bullet_speed * dt;
-            bullet.x += bullet.dirx * bds;
-            bullet.y += bullet.diry * bds;
-            if(bullet.x < -1 || bullet.x > 17 || bullet.y < -1 || bullet.y > 10) {
-                player.bullets.delete(bullet);
-            } else {
-                for(let enemy of enemies) {
-                    if(enemy.containsPoint(bullet.x, bullet.y)) {
-                        enemy.takeDamage();
-                        player.bullets.delete(bullet);
-                    }
-                }
-            }
+            bullet.update(dt);
         };
 
         if(pressed[37] || pressed[65])
@@ -140,7 +175,7 @@ class Mine {
             diry: 0,
             radius: .125,
             hp: 3,
-            tracksPlayer: true
+            tracksPlayer: false
         });
         Object.assign(this, obj);
     }
@@ -186,8 +221,17 @@ class Mine {
 
     takeDamage() {
         this.hp--;
-        if(this.hp <= 0)
+        if(this.hp <= 0) {
             this.node.delete();
+            for(let i = 0; i < 8; i++) {
+                enemy_bullets.add(new Bullet({
+                    x: this.x,
+                    y: this.y,
+                    dirx: Math.cos(i*Math.PI*.25),
+                    diry: Math.sin(i*Math.PI*.25)
+                }));
+            }
+        }
     }
 
     static create1(x, y, theta) {
@@ -204,11 +248,11 @@ class Mine {
 export function run() {
     let x, y, theta;
     for([x, y, theta] of [
-        [1, 1, Math.PI/4],
-        [15, 1, Math.PI/4],
-        [1, 5, Math.PI/4],
-        [15, 4, Math.PI/4],
-        [15, 8, Math.PI/4],        
+        [1, 1, Math.random()*2*Math.PI],
+        [15, 1, Math.random()*2*Math.PI],
+        [1, 5, Math.random()*2*Math.PI],
+        [15, 4, Math.random()*2*Math.PI],
+        [15, 8, Math.random()*2*Math.PI],        
     ]) {
         Mine.create1(x, y, theta);
     }
@@ -262,6 +306,9 @@ function draw() {
     for(let enemy of enemies) {
         enemy.draw();
     }
+    for(let enemy_bullet of enemy_bullets) {
+        enemy_bullet.draw();
+    }
     player.draw();
 
     ctx.restore();
@@ -274,6 +321,9 @@ function update() {
     
     for(let enemy of enemies) {
         enemy.update(dt);
+    }
+    for(let enemy_bullet of enemy_bullets) {
+        enemy_bullet.update(dt);
     }
     player.update(dt);
 
