@@ -16,6 +16,10 @@ let mouse = {
     y: 0
 };
 
+function gameOver() {
+    console.log('Game over');
+}
+
 function clampCoordinates(entity) {
     entity.x = Math.min(Math.max(entity.x, -1), 17);
     entity.y = Math.min(Math.max(entity.y, -1), 10);
@@ -79,6 +83,27 @@ class PlayerBullet extends Bullet {
     }
 }
 
+class EnemyBullet extends Bullet {
+    constructor(obj) {
+        super(obj);
+        enemy_bullets.add(this);
+    }
+
+    update(dt) {
+        super.update(dt);
+
+        if(this.x < -1 || this.x > 17 || this.y < -1 || this.y > 10) {
+            enemy_bullets.delete(this);
+        } else {
+            if(player.containsPoint(this.x, this.y)) {
+                player.takeDamage();
+                enemy_bullets.delete(this);
+            }
+        }
+
+    }
+}
+
 let player = {
     x: 8,
     y: 4.5,
@@ -89,6 +114,31 @@ let player = {
     bullet_timer: 0,
     bullet_interval: 100,
     bullet_speed: .01,
+    hp: 3,
+
+    containsPoint: function(x, y) {
+        const COS = .25/Math.sqrt(.55*.55+.25*.25);
+        const SIN = .55/Math.sqrt(.55*.55+.25*.25);
+        const END1 = -.25*COS-.25*SIN;
+        const END2 = .3*COS;
+        let dx = x - player.x,
+            dy = y - player.y,
+            dirx = player.dirx,
+            diry = player.diry,
+            proj_r = dx * dirx + dy * diry,
+            proj2_r = dx * (COS*dirx-SIN*diry) + dy * (SIN*dirx+COS*diry),
+            proj3_r = dx * (COS*dirx+SIN*diry) + dy * (-SIN*dirx+COS*diry);
+
+        return proj_r > -.25 && proj_r < .3 && 
+            proj2_r > END1 && proj2_r < END2 &&
+            proj3_r > END1 && proj3_r < END2;
+    },
+    takeDamage: function() {
+        player.hp--;
+        if(player.hp <= 0) {
+            gameOver();
+        }
+    },
 
     draw: function() {
         ctx.save();
@@ -224,12 +274,12 @@ class Mine {
         if(this.hp <= 0) {
             this.node.delete();
             for(let i = 0; i < 8; i++) {
-                enemy_bullets.add(new Bullet({
+                new EnemyBullet({
                     x: this.x,
                     y: this.y,
                     dirx: Math.cos(i*Math.PI*.25),
                     diry: Math.sin(i*Math.PI*.25)
-                }));
+                });
             }
         }
     }
